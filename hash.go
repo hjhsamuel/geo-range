@@ -2,6 +2,7 @@ package geo_range
 
 import (
 	"errors"
+
 	"github.com/mmcloughlin/geohash"
 )
 

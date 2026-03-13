@@ -62,7 +62,7 @@ func RadiusSearch(lat, lng, radius float64, f PrecisionDynamicFunc) []string {
 func rectIntersectsCircle(minLat, minLng, maxLat, maxLng, lat, lng, radius float64) bool {
 	closestLat := math.Max(minLat, math.Min(lat, maxLat))
 	closestLng := math.Max(minLng, math.Min(lng, maxLng))
-	d := Haversine(lat, lng, closestLat, closestLng)
+	d := Haversine(&Location{Lat: lat, Lng: lng}, &Location{Lat: closestLat, Lng: closestLng})
 	return d <= radius
 }
 
@@ -74,7 +74,7 @@ func rectInsideCircle(minLat, minLng, maxLat, maxLng, lat, lng, radius float64) 
 		{maxLat, maxLng},
 	}
 	for _, c := range corners {
-		if Haversine(lat, lng, c[0], c[1]) > radius {
+		if Haversine(&Location{Lat: lat, Lng: lng}, &Location{Lat: c[0], Lng: c[1]}) > radius {
 			return false
 		}
 	}
