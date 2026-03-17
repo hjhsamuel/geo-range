@@ -89,11 +89,13 @@ func SplitLine(start, end *Location, distance float64) []*Location {
 	n := int(math.Ceil(wholeDistance / distance)) // 段数
 
 	points := make([]*Location, 0)
-	for i := 1; i < n; i++ {
+	for i := 0; i < n; i++ {
 		t := float64(i) / float64(n)
-		lat := start.Lat + t*(end.Lat-start.Lat)
-		lng := start.Lng + t*(end.Lng-start.Lng)
-		points = append(points, &Location{Lat: lat, Lng: lng})
+
+		lng := start.Lng + (end.Lng-start.Lng)*t
+		lat := start.Lat + (end.Lat-start.Lat)*t
+
+		points = append(points, &Location{Lng: lng, Lat: lat})
 	}
 	points = append(points, end)
 
