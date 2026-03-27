@@ -36,8 +36,13 @@ func MergeHashes(hashes []string, minMergedCnt int) []string {
 //	lat: latitude
 //	lng: longitude
 //	radius: radius(meter)
+//	tolerance: the tolerance to check is rectangle is intersected with circle, (0, 1.0]
 //	f: the custom function to get start and maximum precision by radius
-func RadiusSearch(lat, lng, radius float64, f PrecisionDynamicFunc) []string {
+func RadiusSearch(lat, lng, radius, tolerance float64, f PrecisionDynamicFunc) []string {
+	if tolerance <= 0 || tolerance > 1 {
+		return nil
+	}
+
 	var (
 		startPrecision Precision
 		maxPrecision   Precision
@@ -48,22 +53,18 @@ func RadiusSearch(lat, lng, radius float64, f PrecisionDynamicFunc) []string {
 		startPrecision, maxPrecision = f(radius)
 	}
 
-	results := make(map[string]struct{})
+	trie := NewGeoTrie()
 	root := geohash.EncodeWithPrecision(lat, lng, uint(startPrecision))
-	refineAdaptive(root, lat, lng, radius, startPrecision, maxPrecision, results)
+	refineAdaptive(root, lat, lng, radius, startPrecision, maxPrecision, trie, tolerance)
 
-	out := make([]string, 0)
-	for hash := range results {
-		out = append(out, hash)
-	}
-	return out
+	return trie.AllLeaf()
 }
 
-func rectIntersectsCircle(minLat, minLng, maxLat, maxLng, lat, lng, radius float64) bool {
+func rectIntersectsCircle(minLat, minLng, maxLat, maxLng, lat, lng, radius, tolerance float64) bool {
 	closestLat := math.Max(minLat, math.Min(lat, maxLat))
 	closestLng := math.Max(minLng, math.Min(lng, maxLng))
 	d := Haversine(&Location{Lat: lat, Lng: lng}, &Location{Lat: closestLat, Lng: closestLng})
-	return d <= radius
+	return d <= (radius * tolerance)
 }
 
 func rectInsideCircle(minLat, minLng, maxLat, maxLng, lat, lng, radius float64) bool {
@@ -89,31 +90,41 @@ func expandHash(hash string) []string {
 	return sub
 }
 
-func refineAdaptive(hash string, lat, lng, radius float64, startPrecision, maxPrecision Precision, results map[string]struct{}) {
+func refineAdaptive(hash string, lat, lng, radius float64, startPrecision, maxPrecision Precision, trie *GeoTrieRoot,
+	tolerance float64) {
+
+	if trie.Has(hash) {
+		return
+	}
+
 	box := geohash.BoundingBox(hash)
 
 	if rectInsideCircle(box.MinLat, box.MinLng, box.MaxLat, box.MaxLng, lat, lng, radius) {
-		results[hash] = struct{}{}
+		if !trie.Insert(hash) {
+			return
+		}
 		nbs := geohash.Neighbors(hash)
 		for _, nb := range nbs {
-			if _, ok := results[nb]; ok {
-				continue
-			}
-			refineAdaptive(nb, lat, lng, radius, startPrecision, maxPrecision, results)
+			refineAdaptive(nb, lat, lng, radius, startPrecision, maxPrecision, trie, tolerance)
 		}
 		return
 	}
 
-	if !rectIntersectsCircle(box.MinLat, box.MinLng, box.MaxLat, box.MaxLng, lat, lng, radius) {
+	if !rectIntersectsCircle(box.MinLat, box.MinLng, box.MaxLat, box.MaxLng, lat, lng, radius, tolerance) {
 		return
 	}
 
 	length := uint(len(hash))
 	if length < uint(maxPrecision) {
 		for _, sub := range expandHash(hash) {
-			refineAdaptive(sub, lat, lng, radius, startPrecision, maxPrecision, results)
+			refineAdaptive(sub, lat, lng, radius, startPrecision, maxPrecision, trie, tolerance)
+		}
+
+		nbs := geohash.Neighbors(hash)
+		for _, nb := range nbs {
+			refineAdaptive(nb, lat, lng, radius, startPrecision, maxPrecision, trie, tolerance)
 		}
 	} else {
-		results[hash] = struct{}{}
+		trie.Insert(hash)
 	}
 }

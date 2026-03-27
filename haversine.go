@@ -101,3 +101,22 @@ func SplitLine(start, end *Location, distance float64) []*Location {
 
 	return points
 }
+
+func GetPointAtDistance(point *Location, radius float64, angle float64) *Location {
+	// 转换为弧度
+	lat1 := point.Lat * math.Pi / 180
+	lng1 := point.Lng * math.Pi / 180
+	brng := angle * math.Pi / 180
+	dist := radius / EarthRadius
+
+	lat2 := math.Asin(math.Sin(lat1)*math.Cos(dist) +
+		math.Cos(lat1)*math.Sin(dist)*math.Cos(brng))
+
+	lng2 := lng1 + math.Atan2(math.Sin(brng)*math.Sin(dist)*math.Cos(lat1),
+		math.Cos(dist)-math.Sin(lat1)*math.Sin(lat2))
+
+	return &Location{
+		Lat: lat2 * 180 / math.Pi,
+		Lng: lng2 * 180 / math.Pi,
+	}
+}
