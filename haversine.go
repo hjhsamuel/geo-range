@@ -102,6 +102,15 @@ func SplitLine(start, end *Location, distance float64) []*Location {
 	return points
 }
 
+// GetPointAtDistance
+//
+// # Calculates the destination coordinates given a starting point, distance (radius), and bearing (direction)
+//
+// Param:
+//
+//	point: point location
+//	radius: the distance to travel from the center, in meters
+//	angle: the direction of travel in degrees (0 = North, 90 = East, 180 = South, 270 = West)
 func GetPointAtDistance(point *Location, radius float64, angle float64) *Location {
 	// 转换为弧度
 	lat1 := point.Lat * math.Pi / 180
