@@ -40,7 +40,7 @@ func MergeHashes(hashes []string, minMergedCnt int) []string {
 //	f: the custom function to get start and maximum precision by radius
 func RadiusSearch(lat, lng, radius, tolerance float64, f PrecisionDynamicFunc) []string {
 	if tolerance <= 0 || tolerance > 1 {
-		return nil
+		tolerance = 0.8
 	}
 
 	var (

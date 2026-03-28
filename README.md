@@ -7,14 +7,61 @@ A library with encoding/decoding geohashes and searching geohashes by coordinate
 go get -u github.com/hjhsamuel/geo-range
 ```
 
+### GeoHash
+
 Example Code:
 
 ```go
-hashes := geo_range.RadiusSearch(30.2027354, 120.22543349, 5000, nil)
+hashes := geo_range.RadiusSearch(30.2027354, 120.22543349, 5000, 0.8, nil)
+combined := geo_range.MergeHashes(hashes, 20)
 ```
 
 > Note:
+> 
 > Geohash range searches are imprecise, sometimes you should implement `PrecisionDynamicFunc` and use your own function
+
+
+### Coordinate
+
+If you prefer not to use GeoHash-based tiling for retrieval, you can also use a simple bounding box (MBR) match followed by distance filtering. This approach also delivers excellent performance in MySQL 8.0+.
+
+```sql
+create table tb_marker (
+    id biging unsigned primary key auto_increment,
+    geohash char(12) not null,
+    location point not null
+) charset = utf8mb4;
+
+create index idx_geohash on tb_marker (geohash);
+
+create spatial index idx_location on tb_marker (location);
+```
+
+Example Code:
+
+```go
+point := &geo_hash.Location{Lng: 120.22543349, Lat: 30.2027354}
+northPoint := geo_hash.GetPointAtDistance(point, 5000, 0)
+eastPoint := geo_hash.GetPointAtDistance(point, 5000, 90)
+southPoint := geo_hash.GetPointAtDistance(point, 5000, 180)
+westPoint := geo_hash.GetPointAtDistance(point, 5000, 270)
+
+rightTop := &Location{Lng: eastPoint.Lng, Lat: northPoint.Lat}
+leftBottom := &Location{Lng: westPoint.Lng, Lat: southPoint.Lat}
+```
+
+then you could use MBR match in MySQL:
+
+```sql
+select * from tb_marker where MBRIntersects(ST_GEOMFROMTEXT('LINESTRING(lat1 lng1, lat2 lng2)', 4326), location)
+```
+
+of course, you could use `ST_DISTANCE_SPHERE` for further precise filtering.
+
+## Specialized scenarios
+
+1. When the search range crosses the antimeridian (180th meridian), you must split the bounding box into two separate rectangles.
+2. When the search range encompasses a pole, the longitude span collapses to [-180, 180]. Since a traditional MBR becomes semantically invalid or excessively bloated in this case, it is recommended to constrain the search scope and perform the retrieval based solely on the latitude range.
 
 ## Digits and precision
 
